@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Imbranding — Social Media Agent</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'DM Sans',sans-serif; background:#F8F9FA; color:#111827; -webkit-font-smoothing:antialiased; }
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+// Polyfill window.storage with localStorage
+window.storage = {
+  async get(key) { const v = localStorage.getItem("ib_"+key); return v ? {value:v} : null; },
+  async set(key, value) { localStorage.setItem("ib_"+key, value); return {key,value}; },
+  async delete(key) { localStorage.removeItem("ib_"+key); return {key,deleted:true}; },
+};
+
+// ─── Icons ──────────────────────────────────────────────────────
+const Icons = {
+  LinkedIn: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>),
+  X: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>),
+  Reddit: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/></svg>),
+  Sparkle: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z"/></svg>),
+  Check: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>),
+  XMark: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>),
+  Send: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>),
+  Edit: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>),
+  Refresh: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>),
+  Copy: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>),
+  ChevronDown: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>),
+  Image: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>),
+  User: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>),
+  Logout: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>),
+  Google: () => (<svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>),
+};
+
+// ─── Supabase Auth Client ───────────────────────────────────────
+class SupabaseAuth {
+  constructor() { this.url = ""; this.key = ""; this.session = null; }
+  configure(url, anonKey) { this.url = url.replace(/\/$/, ""); this.key = anonKey; }
+  isConfigured() { return !!(this.url && this.key); }
+  _headers(token) {
+    const h = { "apikey": this.key, "Content-Type": "application/json" };
+    if (token) h["Authorization"] = "Bearer " + token;
+    return h;
+  }
+  async signUp(email, password) {
+    const r = await fetch(this.url + "/auth/v1/signup", { method: "POST", headers: this._headers(), body: JSON.stringify({ email, password }) });
+    const data = await r.json();
+    if (data.error || (!data.access_token && !data.user)) throw new Error(data.error?.message || data.msg || "Signup failed");
+    if (data.access_token) { this.session = data; this._persist(data); }
+    return data;
+  }
+  async signIn(email, password) {
+    const r = await fetch(this.url + "/auth/v1/token?grant_type=password", { method: "POST", headers: this._headers(), body: JSON.stringify({ email, password }) });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error_description || data.error || "Login failed");
+    this.session = data; this._persist(data);
+    return data;
+  }
+  async signInWithGoogle() {
+    const redirect = window.location.origin + window.location.pathname;
+    window.location.href = this.url + "/auth/v1/authorize?provider=google&redirect_to=" + encodeURIComponent(redirect);
+  }
+  async signOut() {
+    if (this.session?.access_token) {
+      try { await fetch(this.url + "/auth/v1/logout", { method: "POST", headers: this._headers(this.session.access_token) }); } catch {}
+    }
+    this.session = null; this._clear();
+  }
+  async getSession() {
+    if (window.location.hash) {
+      const params = new URLSearchParams(window.location.hash.substring(1));
+      const at = params.get("access_token");
+      const rt = params.get("refresh_token");
+      if (at) {
+        const user = await this._getUser(at);
+        const session = { access_token: at, refresh_token: rt, user };
+        this.session = session; this._persist(session);
+        window.history.replaceState({}, "", window.location.pathname);
+        return session;
+      }
+    }
+    try {
+      const stored = JSON.parse(localStorage.getItem("sb_session") || "null");
+      if (stored?.access_token) {
+        const user = await this._getUser(stored.access_token);
+        if (user) { stored.user = user; this.session = stored; return stored; }
+      }
+    } catch {}
+    return null;
+  }
+  async _getUser(token) {
+    try { const r = await fetch(this.url + "/auth/v1/user", { headers: this._headers(token) }); if (r.ok) return r.json(); } catch {} return null;
+  }
+  get token() { return this.session?.access_token || ""; }
+  get userId() { return this.session?.user?.id || ""; }
+  get userEmail() { return this.session?.user?.email || ""; }
+  _persist(s) { try { localStorage.setItem("sb_session", JSON.stringify(s)); } catch {} }
+  _clear() { try { localStorage.removeItem("sb_session"); } catch {} }
+  dbHeaders() { return { apikey: this.key, Authorization: "Bearer " + this.token, "Content-Type": "application/json", Prefer: "return=representation" }; }
+  rest(table) { return this.url + "/rest/v1/" + table; }
+}
+
+const auth = new SupabaseAuth();
+
+// ─── Config ─────────────────────────────────────────────────────
+const PLATFORMS = {
+  linkedin: { name: "LinkedIn", icon: Icons.LinkedIn, color: "#0A66C2", bg: "#0A66C215", border: "#0A66C230", charLimit: 3000 },
+  x: { name: "X", icon: Icons.X, color: "#000", bg: "#00000008", border: "#00000015", charLimit: 280 },
+  reddit: { name: "Reddit", icon: Icons.Reddit, color: "#FF4500", bg: "#FF450012", border: "#FF450025", charLimit: 40000 },
+};
+const STATUS_CONFIG = {
+  draft: { label: "Draft", color: "#8B6914", bg: "#FEF3C7", dot: "#D97706" },
+  approved: { label: "Approved", color: "#065F46", bg: "#D1FAE5", dot: "#059669" },
+  published: { label: "Published", color: "#1E40AF", bg: "#DBEAFE", dot: "#3B82F6" },
+  rejected: { label: "Rejected", color: "#991B1B", bg: "#FEE2E2", dot: "#DC2626" },
+};
+const IMAGE_STYLES = { meme: { label: "Meme / Humor", desc: "Funny meme-style image" }, insight_card: { label: "Insight Card", desc: "Clean branded card" }, conceptual: { label: "Conceptual Art", desc: "Abstract illustration" }, none: { label: "No Image", desc: "Text-only" } };
+const DEFAULT_VOICE = { name: "", bio: "", tone: "", vocabulary: "", topics: "", samplePosts: "" };
+
+// ─── API helpers ────────────────────────────────────────────────
+function buildSystemPrompt(platform, voice) {
+  const vb = voice.name ? ("\nVOICE — Write as:\nName: " + voice.name + "\nBio: " + voice.bio + "\nTone: " + voice.tone + "\nVocabulary: " + voice.vocabulary + "\nTopics: " + voice.topics + "\n\nSAMPLE POSTS:\n" + voice.samplePosts + "\n\nMatch this voice exactly.") : "";
+  const g = {
+    linkedin: "You are a LinkedIn ghostwriter.\n- Hook opening\n- Short paragraphs\n- End with question/CTA\n- 3-5 hashtags\n- 150-300 words\n- First person" + vb,
+    x: "You are a Twitter/X ghostwriter.\n- Max 280 chars per tweet\n- Threads: 4-7 tweets\n- Be opinionated\n- First person" + vb,
+    reddit: "You are a Reddit post writer.\n- Lead with value\n- Conversational\n- End with discussion question\n- First person" + vb,
+  };
+  return g[platform];
+}
+
+async function generateWithClaude(topic, platform, voice, imageStyle) {
+  const sys = buildSystemPrompt(platform, voice);
+  const wantImg = imageStyle && imageStyle !== "none";
+  const imgF = wantImg ? ',\n  "image_prompt": "image generation prompt"' : "";
+  const imgI = wantImg ? "\n\nAlso include an image_prompt field for a " + (IMAGE_STYLES[imageStyle]?.desc || "") + "." : "";
+  const msg = "Generate a social media post about:\n\nTOPIC: " + topic + '\n\nReturn ONLY valid JSON:\n{"content": "post text", "hook_summary": "hook angle", "engagement_prediction": "low/medium/high"' + imgF + "}" + imgI;
+  const base = (localStorage.getItem("ib_sb_url") || "").replace(/\/$/, "");
+  const r = await fetch(base + "/functions/v1/generate", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + auth.token }, body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1500, system: sys, messages: [{ role: "user", content: msg }] }) });
+  if (!r.ok) throw new Error("Claude API error " + r.status);
+  const d = await r.json(); const raw = d.content.map(b => b.text || "").join("");
+  try { return JSON.parse(raw.replace(/```json|```/g, "").trim()); } catch { return { content: raw, hook_summary: "N/A", engagement_prediction: "N/A" }; }
+}
+
+async function generateImageWithGrok(prompt, apiKey) {
+  if (!apiKey) throw new Error("No xAI API key");
+  const r = await fetch("https://api.x.ai/v1/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + apiKey }, body: JSON.stringify({ model: "grok-2-image", prompt, n: 1, response_format: "url" }) });
+  if (!r.ok) throw new Error("Grok error " + r.status);
+  const d = await r.json(); return d?.data?.[0]?.url || null;
+}
+
+// ─── DB operations ──────────────────────────────────────────────
+async function dbFetchContent() {
+  if (!auth.isConfigured()) return [];
+  const r = await fetch(auth.rest("content") + "?order=created_at.desc&limit=200", { headers: auth.dbHeaders() });
+  return r.ok ? r.json() : [];
+}
+async function dbUpsertContent(item) {
+  if (!auth.isConfigured()) return;
+  const payload = { id: item.id, user_id: auth.userId, platform: item.platform, status: item.status, topic: item.topic, content: item.content, hook_summary: item.metadata?.hook_summary, engagement_prediction: item.metadata?.engagement_prediction, image_prompt: item.metadata?.image_prompt, image_url: item.metadata?.image_url };
+  await fetch(auth.rest("content") + "?on_conflict=id", { method: "POST", headers: { ...auth.dbHeaders(), Prefer: "resolution=merge-duplicates" }, body: JSON.stringify(payload) });
+}
+async function dbUpdateContent(id, fields) {
+  if (!auth.isConfigured()) return;
+  await fetch(auth.rest("content") + "?id=eq." + id, { method: "PATCH", headers: auth.dbHeaders(), body: JSON.stringify(fields) });
+}
+async function dbFetchVoice() {
+  if (!auth.isConfigured()) return null;
+  const r = await fetch(auth.rest("voice_profiles") + "?id=eq.default", { headers: auth.dbHeaders() });
+  if (!r.ok) return null; const rows = await r.json(); return rows[0] || null;
+}
+async function dbSaveVoice(v) {
+  if (!auth.isConfigured()) return;
+  await fetch(auth.rest("voice_profiles") + "?on_conflict=id,user_id", { method: "POST", headers: { ...auth.dbHeaders(), Prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ id: "default", user_id: auth.userId, name: v.name, bio: v.bio, tone: v.tone, vocabulary: v.vocabulary, topics: v.topics, sample_posts: v.samplePosts }) });
+}
+async function dbGetSetting(key) {
+  if (!auth.isConfigured()) return null;
+  const r = await fetch(auth.rest("settings") + "?key=eq." + key, { headers: auth.dbHeaders() });
+  if (!r.ok) return null; const rows = await r.json(); return rows[0]?.value || null;
+}
+async function dbSetSetting(key, value) {
+  if (!auth.isConfigured()) return;
+  await fetch(auth.rest("settings") + "?on_conflict=key,user_id", { method: "POST", headers: { ...auth.dbHeaders(), Prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ key, user_id: auth.userId, value }) });
+}
+async function dbGetSubscription() {
+  if (!auth.isConfigured()) return { plan: "free", credits_remaining: 10, credits_monthly: 10, status: "active" };
+  const r = await fetch(auth.rest("user_subscriptions") + "?user_id=eq." + auth.userId, { headers: auth.dbHeaders() });
+  if (!r.ok) return { plan: "free", credits_remaining: 10, credits_monthly: 10, status: "active" };
+  const rows = await r.json();
+  return rows[0] || { plan: "free", credits_remaining: 10, credits_monthly: 10, status: "active" };
+}
+async function dbDeductCredits(amount, action, contentId, platform) {
+  if (!auth.isConfigured()) return false;
+  const sub = await dbGetSubscription();
+  if (sub.credits_remaining < amount) return false;
+  await fetch(auth.rest("user_subscriptions") + "?user_id=eq." + auth.userId, { method: "PATCH", headers: auth.dbHeaders(), body: JSON.stringify({ credits_remaining: sub.credits_remaining - amount }) });
+  await fetch(auth.rest("credit_usage"), { method: "POST", headers: { ...auth.dbHeaders(), Prefer: "return=minimal" }, body: JSON.stringify({ user_id: auth.userId, amount, action, content_id: contentId || null, platform: platform || null }) });
+  return true;
+}
+async function dbFetchConnectedAccounts() {
+  if (!auth.isConfigured()) return [];
+  const r = await fetch(auth.rest("connected_accounts") + "?select=platform,platform_username,platform_display_name,created_at", { headers: auth.dbHeaders() });
+  return r.ok ? r.json() : [];
+}
+async function startOAuthConnect(platform) {
+  const base = auth.url.replace("/rest/v1","").replace(/\/$/, "");
+  const r = await fetch(base + "/functions/v1/oauth-connect", {
+    method: "POST", headers: { Authorization: "Bearer " + auth.token, "Content-Type": "application/json" },
+    body: JSON.stringify({ platform, redirect_url: window.location.href }),
+  });
+  const data = await r.json();
+  if (data.url) { window.open(data.url, "oauth", "width=600,height=700,left=200,top=100"); }
+  return data;
+}
+async function publishToplatform(contentId, content, platform, imageUrl, subreddit, title) {
+  const base = auth.url.replace("/rest/v1","").replace(/\/$/, "");
+  const r = await fetch(base + "/functions/v1/publish", {
+    method: "POST", headers: { Authorization: "Bearer " + auth.token, "Content-Type": "application/json" },
+    body: JSON.stringify({ content_id: contentId, content, platform, image_url: imageUrl, subreddit, title }),
+  });
+  return r.json();
+}
+async function startStripeCheckout(priceId, plan) {
+  const base = auth.url.replace("/rest/v1","").replace(/\/$/, "");
+  const r = await fetch(base + "/functions/v1/billing", {
+    method: "POST", headers: { Authorization: "Bearer " + auth.token, "Content-Type": "application/json" },
+    body: JSON.stringify({ price_id: priceId, plan, success_url: window.location.href + "?payment=success", cancel_url: window.location.href }),
+  });
+  const data = await r.json();
+  if (data.url) window.location.href = data.url;
+}
+
+const baseFont = { fontFamily: "'DM Sans', sans-serif" };
+const inputStyle = { width: "100%", boxSizing: "border-box", padding: "12px 16px", borderRadius: 10, border: "1px solid #E5E7EB", background: "#FAFAFA", fontSize: 14, ...baseFont, color: "#111827", outline: "none" };
+
+// ─── Setup Screen ───────────────────────────────────────────────
+function SetupScreen({ onComplete }) {
+  const [url, setUrl] = useState(""); const [key, setKey] = useState(""); const [err, setErr] = useState("");
+  const go = async () => {
+    if (!url || !key) { setErr("Supabase URL and Anon Key are required"); return; }
+    auth.configure(url, key);
+    try {
+      const r = await fetch(auth.rest("content") + "?limit=1", { headers: { apikey: key } });
+      if (!r.ok && r.status !== 406) throw new Error("Could not connect (status " + r.status + ")");
+    } catch (e) { setErr("Connection failed: " + e.message); return; }
+    await window.storage.set("sb_url", url);
+    await window.storage.set("sb_key", key);
+    onComplete();
+  };
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8F9FA", ...baseFont }}>
+      <div style={{ width: 440, background: "#fff", borderRadius: 16, padding: 32, border: "1px solid #E5E7EB", boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: "linear-gradient(135deg,#111827,#374151)", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20, fontWeight: 700, marginBottom: 12 }}>IB</div>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Connect Imbranding</h2>
+          <p style={{ margin: "8px 0 0", color: "#6B7280", fontSize: 14 }}>Enter your project details to get started</p>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Supabase Project URL</label><input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://abc123.supabase.co" style={inputStyle} /></div>
+          <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Supabase Anon Key</label><input value={key} onChange={e => setKey(e.target.value)} placeholder="eyJhbGciOi..." style={{ ...inputStyle, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }} /></div>
+          {err && <div style={{ padding: "8px 12px", borderRadius: 8, background: "#FEE2E2", color: "#991B1B", fontSize: 13 }}>{err}</div>}
+          <button onClick={go} style={{ padding: "12px", borderRadius: 10, background: "#111827", color: "#fff", border: "none", fontSize: 15, fontWeight: 600, cursor: "pointer", ...baseFont, marginTop: 4 }}>Connect</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Auth Screen ────────────────────────────────────────────────
+function AuthScreen({ onAuth }) {
+  const [mode, setMode] = useState("login"); const [email, setEmail] = useState(""); const [pw, setPw] = useState(""); const [err, setErr] = useState(""); const [loading, setLoading] = useState(false); const [confirmMsg, setConfirmMsg] = useState("");
+  const handleSubmit = async () => {
+    setErr(""); setLoading(true); setConfirmMsg("");
+    try {
+      if (mode === "signup") {
+        const data = await auth.signUp(email, pw);
+        if (data.access_token) { onAuth(data); }
+        else { setConfirmMsg("Check your email to confirm your account, then log in."); setMode("login"); }
+      } else {
+        const data = await auth.signIn(email, pw);
+        onAuth(data);
+      }
+    } catch (e) { setErr(e.message); }
+    setLoading(false);
+  };
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8F9FA", ...baseFont }}>
+      <div style={{ width: 400, background: "#fff", borderRadius: 16, padding: 32, border: "1px solid #E5E7EB", boxShadow: "0 4px 24px rgba(0,0,0,0.06)", animation: "fadeIn 0.2s" }}>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: "linear-gradient(135deg,#111827,#374151)", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20, fontWeight: 700, marginBottom: 12 }}>IB</div>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Imbranding</h2>
+          <p style={{ margin: "8px 0 0", color: "#6B7280", fontSize: 14 }}>{mode === "login" ? "Welcome back" : "Create your account"}</p>
+        </div>
+        <button onClick={() => auth.signInWithGoogle()} style={{ width: "100%", padding: "11px", borderRadius: 10, border: "1px solid #E5E7EB", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 14, fontWeight: 500, cursor: "pointer", ...baseFont, marginBottom: 20, color: "#374151" }}>
+          <Icons.Google /> Continue with Google
+        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          <div style={{ flex: 1, height: 1, background: "#E5E7EB" }} />
+          <span style={{ fontSize: 12, color: "#9CA3AF" }}>or</span>
+          <div style={{ flex: 1, height: 1, background: "#E5E7EB" }} />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" type="email" style={inputStyle} onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+          <input value={pw} onChange={e => setPw(e.target.value)} placeholder="Password" type="password" style={inputStyle} onKeyDown={e => e.key === "Enter" && handleSubmit()} />
+          {err && <div style={{ padding: "8px 12px", borderRadius: 8, background: "#FEE2E2", color: "#991B1B", fontSize: 13 }}>{err}</div>}
+          {confirmMsg && <div style={{ padding: "8px 12px", borderRadius: 8, background: "#D1FAE5", color: "#065F46", fontSize: 13 }}>{confirmMsg}</div>}
+          <button onClick={handleSubmit} disabled={loading} style={{ padding: "12px", borderRadius: 10, background: "#111827", color: "#fff", border: "none", fontSize: 15, fontWeight: 600, cursor: "pointer", ...baseFont, opacity: loading ? 0.6 : 1 }}>
+            {loading ? "..." : mode === "login" ? "Sign In" : "Create Account"}
+          </button>
+        </div>
+        <p style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: "#6B7280" }}>
+          {mode === "login" ? "Don't have an account? " : "Already have an account? "}
+          <span onClick={() => { setMode(mode === "login" ? "signup" : "login"); setErr(""); setConfirmMsg(""); }} style={{ color: "#111827", fontWeight: 600, cursor: "pointer" }}>
+            {mode === "login" ? "Sign up" : "Log in"}
+          </span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Small Components ───────────────────────────────────────────
+function PlatformBadge({ platform }) { const p = PLATFORMS[platform]; const I = p.icon; return <span style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:6,background:p.bg,border:"1px solid "+p.border,color:p.color,fontSize:12,fontWeight:600 }}><I /> {p.name}</span>; }
+function StatusBadge({ status }) { const s = STATUS_CONFIG[status]; return <span style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:20,background:s.bg,color:s.color,fontSize:11,fontWeight:600,textTransform:"uppercase" }}><span style={{ width:6,height:6,borderRadius:"50%",background:s.dot }}/>{s.label}</span>; }
+function CharCount({ content, platform }) { const l = PLATFORMS[platform]?.charLimit||3000; const c = content.length; return <span style={{ fontSize:11,fontFamily:"'JetBrains Mono',monospace",color:c/l>1?"#DC2626":c/l>0.9?"#D97706":"#6B7280",fontWeight:500 }}>{c}/{l}</span>; }
+function getTimeAgo(d) { const m = Math.floor((Date.now()-new Date(d).getTime())/60000); if(m<60) return m+"m ago"; const h=Math.floor(m/60); if(h<24) return h+"h ago"; return Math.floor(h/24)+"d ago"; }
+function ActionBtn({ icon, label, onClick, color, primary, subtle }) { const [h, setH] = useState(false); const bc = color||"#6B7280"; return <button onClick={e=>{e.stopPropagation();onClick();}} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)} style={{ display:"inline-flex",alignItems:"center",gap:5,padding:primary?"7px 16px":"7px 12px",borderRadius:8,border:"1px solid "+(primary?bc:subtle?"#E5E7EB":bc+"40"),background:primary?(h?bc+"E6":bc):h?(subtle?"#F9FAFB":bc+"08"):"transparent",color:primary?"#fff":subtle?"#6B7280":bc,fontSize:13,fontWeight:500,cursor:"pointer",...baseFont }}>{icon} {label}</button>; }
+
+// ─── Voice Profile ──────────────────────────────────────────────
+function VoiceProfilePanel({ voice, setVoice, isOpen, onToggle }) {
+  const [lv, setLv] = useState(voice); const [saved, setSaved] = useState(false);
+  useEffect(() => setLv(voice), [voice]);
+  const save = () => { setVoice(lv); setSaved(true); setTimeout(()=>setSaved(false),2000); };
+  const fs = { width:"100%",boxSizing:"border-box",padding:"10px 14px",borderRadius:8,border:"1px solid #E5E7EB",background:"#FAFAFA",fontSize:13,...baseFont,color:"#111827",outline:"none",lineHeight:1.6,resize:"vertical" };
+  const ls = { fontSize:12,fontWeight:600,color:"#374151",marginBottom:4 };
+  if (!isOpen) return <button onClick={onToggle} style={{ display:"inline-flex",alignItems:"center",gap:8,padding:"10px 16px",borderRadius:10,border:"1px solid #E5E7EB",background:"#fff",fontSize:13,fontWeight:500,color:"#374151",cursor:"pointer",...baseFont,marginBottom:16 }}><Icons.User /> Voice Profile{voice.name ? ": "+voice.name : ""} <span style={{fontSize:11,color:"#9CA3AF"}}>customize</span></button>;
+  return (
+    <div style={{ background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:24,marginBottom:20 }}>
+      <div style={{ display:"flex",justifyContent:"space-between",marginBottom:20 }}><div style={{ display:"flex",alignItems:"center",gap:8 }}><span style={{color:"#6366F1"}}><Icons.User /></span><h3 style={{margin:0,fontSize:16,fontWeight:600}}>Voice Profile</h3></div><button onClick={onToggle} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF"}}><Icons.XMark /></button></div>
+      <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
+        <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
+          <div><div style={ls}>Name</div><input value={lv.name} onChange={e=>setLv(p=>({...p,name:e.target.value}))} style={{...fs,resize:"none"}} /></div>
+          <div><div style={ls}>Bio</div><textarea rows={2} value={lv.bio} onChange={e=>setLv(p=>({...p,bio:e.target.value}))} style={fs} /></div>
+          <div><div style={ls}>Tone & Style</div><textarea rows={3} value={lv.tone} onChange={e=>setLv(p=>({...p,tone:e.target.value}))} style={fs} /></div>
+          <div><div style={ls}>Vocabulary</div><textarea rows={2} value={lv.vocabulary} onChange={e=>setLv(p=>({...p,vocabulary:e.target.value}))} style={fs} /></div>
+          <div><div style={ls}>Topics</div><input value={lv.topics} onChange={e=>setLv(p=>({...p,topics:e.target.value}))} style={{...fs,resize:"none"}} /></div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column"}}><div style={ls}>Sample Posts</div><textarea value={lv.samplePosts} onChange={e=>setLv(p=>({...p,samplePosts:e.target.value}))} style={{...fs,flex:1,minHeight:280}} placeholder="Paste 2-5 of your best posts..." /></div>
+      </div>
+      <div style={{ display:"flex",justifyContent:"flex-end",gap:10,marginTop:16 }}>
+        <button onClick={onToggle} style={{padding:"9px 18px",borderRadius:8,background:"transparent",border:"1px solid #E5E7EB",color:"#6B7280",fontSize:13,...baseFont,cursor:"pointer"}}>Cancel</button>
+        <button onClick={save} style={{padding:"9px 22px",borderRadius:8,border:"none",background:saved?"#059669":"#111827",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",...baseFont}}>{saved?"Saved":"Save"}</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Generate Panel ─────────────────────────────────────────────
+function GeneratePanel({ onGenerate }) {
+  const [topic, setTopic] = useState(""); const [plats, setPlats] = useState({linkedin:true,x:true,reddit:true}); const [imgStyle, setImgStyle] = useState("meme"); const [showImg, setShowImg] = useState(false); const [loading, setLoading] = useState(false);
+  const go = async () => { if(!topic.trim()) return; setLoading(true); const sel = Object.entries(plats).filter(([,v])=>v).map(([k])=>k); await onGenerate(topic,sel,imgStyle); setLoading(false); setTopic(""); };
+  return (
+    <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:24,marginBottom:20}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}><span style={{color:"#D97706"}}><Icons.Sparkle /></span><h3 style={{margin:0,fontSize:16,fontWeight:600}}>Generate Content</h3></div>
+      <textarea value={topic} onChange={e=>setTopic(e.target.value)} placeholder="Enter a topic or idea..." rows={3} style={{...inputStyle,resize:"vertical",lineHeight:1.6,marginBottom:14}} />
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+          {Object.entries(PLATFORMS).map(([k,p])=>{const I=p.icon;const a=plats[k];return <button key={k} onClick={()=>setPlats(pr=>({...pr,[k]:!pr[k]}))} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:8,border:"1.5px solid "+(a?p.color:"#E5E7EB"),background:a?p.bg:"transparent",color:a?p.color:"#9CA3AF",fontSize:12,fontWeight:600,cursor:"pointer",...baseFont}}><I /> {p.name}</button>;})}
+          <div style={{width:1,height:24,background:"#E5E7EB",margin:"0 4px"}} />
+          <div style={{position:"relative"}}>
+            <button onClick={()=>setShowImg(!showImg)} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:8,border:"1.5px solid "+(imgStyle!=="none"?"#8B5CF6":"#E5E7EB"),background:imgStyle!=="none"?"#8B5CF610":"transparent",color:imgStyle!=="none"?"#7C3AED":"#9CA3AF",fontSize:12,fontWeight:600,cursor:"pointer",...baseFont}}><Icons.Image /> {IMAGE_STYLES[imgStyle]?.label} <Icons.ChevronDown /></button>
+            {showImg&&<div style={{position:"absolute",top:"100%",left:0,marginTop:6,zIndex:50,background:"#fff",borderRadius:10,border:"1px solid #E5E7EB",boxShadow:"0 8px 24px rgba(0,0,0,0.12)",width:220,overflow:"hidden"}}>{Object.entries(IMAGE_STYLES).map(([k,s])=><button key={k} onClick={()=>{setImgStyle(k);setShowImg(false);}} style={{display:"block",width:"100%",padding:"10px 14px",border:"none",background:imgStyle===k?"#F3F4F6":"transparent",textAlign:"left",cursor:"pointer",...baseFont,borderBottom:"1px solid #F3F4F6"}}><div style={{fontSize:13,fontWeight:600}}>{s.label}</div><div style={{fontSize:11,color:"#6B7280"}}>{s.desc}</div></button>)}</div>}
+          </div>
+        </div>
+        <button onClick={go} disabled={!topic.trim()||loading} style={{display:"inline-flex",alignItems:"center",gap:8,padding:"10px 24px",borderRadius:10,background:loading?"#9CA3AF":"#111827",color:"#fff",border:"none",fontSize:14,fontWeight:600,cursor:loading?"wait":"pointer",...baseFont,opacity:!topic.trim()?0.4:1}}>{loading?<span style={{animation:"spin 1s linear infinite",display:"inline-flex"}}><Icons.Refresh /></span>:<Icons.Sparkle />}{loading?"Generating...":"Generate"}</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Content Card ───────────────────────────────────────────────
+function ContentCard({ item, onApprove, onReject, onEdit, onPublish, onCopy, isExpanded, onToggle, setItems, xaiKey }) {
+  const p = PLATFORMS[item.platform]; const t = getTimeAgo(item.created_at); const hasImg = item.metadata?.image_prompt; const hasGenImg = item.metadata?.image_url;
+  return (
+    <div style={{background:"#fff",borderRadius:12,border:"1px solid #E5E7EB",overflow:"hidden",boxShadow:isExpanded?"0 4px 24px rgba(0,0,0,0.08)":"0 1px 3px rgba(0,0,0,0.04)"}}>
+      <div onClick={onToggle} style={{padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",borderBottom:isExpanded?"1px solid #F3F4F6":"none"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,flex:1,minWidth:0}}><PlatformBadge platform={item.platform} /><span style={{fontSize:14,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.topic}</span>{(hasImg||hasGenImg)&&<span style={{color:"#7C3AED",flexShrink:0,display:"flex"}}><Icons.Image /></span>}</div>
+        <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}><span style={{fontSize:12,color:"#9CA3AF"}}>{t}</span><StatusBadge status={item.status} /><span style={{transform:isExpanded?"rotate(180deg)":"rotate(0)",transition:"transform 0.2s",color:"#9CA3AF",display:"flex"}}><Icons.ChevronDown /></span></div>
+      </div>
+      {isExpanded&&<div>
+        <div style={{padding:"20px 20px 0"}}><div style={{background:"#FAFAFA",borderRadius:10,padding:20,border:"1px solid #F3F4F6",fontSize:14,lineHeight:1.7,color:"#374151",whiteSpace:"pre-wrap",maxHeight:400,overflowY:"auto",...baseFont}}>{item.content}</div><div style={{display:"flex",justifyContent:"space-between",marginTop:10}}><CharCount content={item.content} platform={item.platform} />{item.metadata?.engagement_prediction&&<span style={{fontSize:12,color:"#6B7280"}}>Engagement: <strong style={{color:item.metadata.engagement_prediction.includes("high")?"#059669":"#D97706"}}>{item.metadata.engagement_prediction}</strong></span>}</div></div>
+        {(hasImg||hasGenImg)&&<div style={{padding:"12px 20px 0"}}>
+          {hasGenImg&&<div style={{marginBottom:10}}><img src={item.metadata.image_url} alt="" style={{width:"100%",maxHeight:360,objectFit:"cover",borderRadius:10,border:"1px solid #E5E7EB"}} /></div>}
+          {hasImg&&<div style={{background:"#F5F3FF",border:"1px solid #DDD6FE",borderRadius:10,padding:14}}><p style={{margin:0,fontSize:13,color:"#4C1D95",lineHeight:1.6}}>{item.metadata.image_prompt}</p><div style={{marginTop:8,display:"flex",gap:8}}><button onClick={e=>{e.stopPropagation();navigator.clipboard?.writeText(item.metadata.image_prompt);}} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:6,border:"1px solid #C4B5FD",background:"#EDE9FE",color:"#6D28D9",fontSize:11,fontWeight:600,cursor:"pointer",...baseFont}}><Icons.Copy /> Copy Prompt</button>{!hasGenImg&&<button onClick={async e=>{e.stopPropagation();try{const url=await generateImageWithGrok(item.metadata.image_prompt,xaiKey);setItems(p=>p.map(i=>i.id===item.id?{...i,metadata:{...i.metadata,image_url:url}}:i));dbUpdateContent(item.id,{image_url:url});}catch(err){console.error(err);}}} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:6,border:"1px solid #C4B5FD",background:"#7C3AED",color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer",...baseFont}}><Icons.Sparkle /> Generate with Grok</button>}</div></div>}
+        </div>}
+        <div style={{padding:"16px 20px",marginTop:8,display:"flex",justifyContent:"space-between",borderTop:"1px solid #F3F4F6"}}>
+          <div style={{display:"flex",gap:8}}><ActionBtn icon={<Icons.Copy />} label="Copy" onClick={()=>onCopy(item)} subtle /><ActionBtn icon={<Icons.Edit />} label="Edit" onClick={()=>onEdit(item)} subtle /></div>
+          <div style={{display:"flex",gap:8}}>{item.status==="draft"&&<><ActionBtn icon={<Icons.XMark />} label="Reject" onClick={()=>onReject(item.id)} color="#DC2626" /><ActionBtn icon={<Icons.Check />} label="Approve" onClick={()=>onApprove(item.id)} color="#059669" primary /></>}{item.status==="approved"&&<ActionBtn icon={<Icons.Send />} label="Publish" onClick={()=>onPublish(item.id)} color="#0A66C2" primary />}</div>
+        </div>
+      </div>}
+    </div>
+  );
+}
+
+function EditModal({ item, onSave, onClose }) {
+  const [c, setC] = useState(item.content); const r = useRef(null);
+  useEffect(()=>{if(r.current){r.current.focus();}}, []);
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.4)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:680,boxShadow:"0 24px 48px rgba(0,0,0,0.15)"}}>
+        <div style={{padding:"20px 24px",borderBottom:"1px solid #F3F4F6",display:"flex",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:12}}><PlatformBadge platform={item.platform} /><span style={{fontSize:15,fontWeight:600}}>Edit</span></div><button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF"}}><Icons.XMark /></button></div>
+        <div style={{padding:24}}><textarea ref={r} value={c} onChange={e=>setC(e.target.value)} style={{...inputStyle,minHeight:200,maxHeight:500,resize:"vertical",lineHeight:1.7}} /><div style={{marginTop:8,textAlign:"right"}}><CharCount content={c} platform={item.platform} /></div></div>
+        <div style={{padding:"16px 24px",borderTop:"1px solid #F3F4F6",display:"flex",justifyContent:"flex-end",gap:10}}><button onClick={onClose} style={{padding:"10px 20px",borderRadius:8,background:"transparent",border:"1px solid #E5E7EB",color:"#6B7280",fontSize:14,...baseFont,cursor:"pointer"}}>Cancel</button><button onClick={()=>{onSave(item.id,c);onClose();}} style={{padding:"10px 24px",borderRadius:8,background:"#111827",border:"none",color:"#fff",fontSize:14,fontWeight:600,...baseFont,cursor:"pointer"}}>Save</button></div>
+      </div>
+    </div>
+  );
+}
+
+function FilterBar({ active, onFilter, counts }) {
+  return <div style={{display:"flex",gap:4,marginBottom:20,padding:4,background:"#F3F4F6",borderRadius:10,width:"fit-content"}}>{[["all","All"],["draft","Drafts"],["approved","Approved"],["published","Published"],["rejected","Rejected"]].map(([k,l])=>{const a=active===k;const c=k==="all"?counts.total:counts[k]||0;return <button key={k} onClick={()=>onFilter(k)} style={{padding:"8px 16px",borderRadius:8,background:a?"#fff":"transparent",border:"none",boxShadow:a?"0 1px 3px rgba(0,0,0,0.08)":"none",color:a?"#111827":"#6B7280",fontSize:13,fontWeight:a?600:500,cursor:"pointer",...baseFont,display:"flex",alignItems:"center",gap:6}}>{l}{c>0&&<span style={{background:a?"#111827":"#D1D5DB",color:a?"#fff":"#6B7280",fontSize:10,fontWeight:700,padding:"2px 6px",borderRadius:10}}>{c}</span>}</button>;})}</div>;
+}
+
+function StatsBar({ items }) {
+  return <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:24}}>{Object.entries(PLATFORMS).map(([k,p])=>{const I=p.icon;const c=items.filter(i=>i.platform===k).length;const pub=items.filter(i=>i.platform===k&&i.status==="published").length;return <div key={k} style={{background:"#fff",borderRadius:12,padding:"16px 20px",border:"1px solid #E5E7EB",display:"flex",alignItems:"center",gap:14}}><div style={{width:40,height:40,borderRadius:10,background:p.bg,border:"1px solid "+p.border,display:"flex",alignItems:"center",justifyContent:"center",color:p.color}}><I /></div><div><div style={{fontSize:13,color:"#6B7280"}}>{p.name}</div><div style={{fontSize:20,fontWeight:700}}>{c}</div></div><div style={{marginLeft:"auto"}}><div style={{fontSize:11,color:"#059669",fontWeight:600}}>{pub} pub</div></div></div>;})}</div>;
+}
+
+function ConnectedAccountsPanel({ accounts, onConnect, onRefresh }) {
+  const platList = [
+    { key: "x", name: "X / Twitter", icon: Icons.X, color: "#000" },
+    { key: "linkedin", name: "LinkedIn", icon: Icons.LinkedIn, color: "#0A66C2" },
+    { key: "reddit", name: "Reddit", icon: Icons.Reddit, color: "#FF4500" },
+  ];
+  return (
+    <div style={{background:"#fff",borderRadius:14,border:"1px solid #E5E7EB",padding:20,marginBottom:20}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+        <h3 style={{margin:0,fontSize:15,fontWeight:600}}>Connected Accounts</h3>
+        <button onClick={onRefresh} style={{background:"none",border:"none",cursor:"pointer",color:"#9CA3AF",display:"flex"}}><Icons.Refresh /></button>
+      </div>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+        {platList.map(p => {
+          const I = p.icon;
+          const acc = accounts.find(a => a.platform === p.key);
+          return <div key={p.key} style={{flex:"1 1 140px",padding:"14px 16px",borderRadius:10,border:"1px solid "+(acc?"#BBF7D0":"#E5E7EB"),background:acc?"#F0FDF4":"#FAFAFA",display:"flex",alignItems:"center",gap:10}}>
+            <span style={{color:p.color,display:"flex"}}><I /></span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:600}}>{p.name}</div>
+              {acc ? <div style={{fontSize:11,color:"#059669",fontWeight:500}}>@{acc.platform_username}</div>
+                : <button onClick={()=>onConnect(p.key)} style={{fontSize:11,color:"#6366F1",fontWeight:600,background:"none",border:"none",cursor:"pointer",padding:0,...baseFont}}>Connect →</button>}
+            </div>
+            {acc && <span style={{fontSize:10,color:"#059669"}}>✓</span>}
+          </div>;
+        })}
+      </div>
+    </div>
+  );
+}
+
+const PLAN_COLORS = { free: "#6B7280", starter: "#2563EB", pro: "#7C3AED", team: "#D97706" };
+function CreditsBadge({ sub, onUpgrade }) {
+  const pct = sub.credits_monthly > 0 ? (sub.credits_remaining / sub.credits_monthly) * 100 : 0;
+  const col = pct > 30 ? "#059669" : pct > 10 ? "#D97706" : "#DC2626";
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:12}}>
+      <span style={{fontSize:11,fontWeight:700,textTransform:"uppercase",color:PLAN_COLORS[sub.plan]||"#6B7280",letterSpacing:0.5}}>{sub.plan}</span>
+      <div style={{display:"flex",alignItems:"center",gap:6}}>
+        <div style={{width:60,height:6,borderRadius:3,background:"#E5E7EB",overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",borderRadius:3,background:col,transition:"width 0.3s"}} /></div>
+        <span style={{fontSize:11,color:col,fontWeight:600,fontFamily:"'JetBrains Mono',monospace"}}>{sub.credits_remaining}/{sub.credits_monthly}</span>
+      </div>
+      {sub.plan === "free" && <button onClick={onUpgrade} style={{fontSize:11,fontWeight:600,color:"#7C3AED",background:"#F5F3FF",border:"1px solid #DDD6FE",borderRadius:6,padding:"3px 10px",cursor:"pointer",...baseFont}}>Upgrade</button>}
+    </div>
+  );
+}
+
+function PricingModal({ onClose, currentPlan, onSelectPlan }) {
+  const plans = [
+    { key: "starter", name: "Starter", price: 19, credits: 100, features: ["100 credits/mo", "~50 posts with images", "All platforms", "Voice profile", "Connected accounts"] },
+    { key: "pro", name: "Pro", price: 49, credits: 400, features: ["400 credits/mo", "~200 posts with images", "Priority generation", "Export history", "Everything in Starter"], popular: true },
+    { key: "team", name: "Team", price: 99, credits: 1000, features: ["1,000 credits/mo", "~500 posts with images", "Team collaboration", "API access", "Everything in Pro"] },
+  ];
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:20,width:"100%",maxWidth:800,padding:32}}>
+        <div style={{textAlign:"center",marginBottom:28}}><h2 style={{margin:0,fontSize:24,fontWeight:700}}>Choose Your Plan</h2><p style={{margin:"8px 0 0",color:"#6B7280",fontSize:14}}>1 credit = 1 text post · 3 credits = 1 post with image</p></div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}}>
+          {plans.map(p => (
+            <div key={p.key} style={{border:p.popular?"2px solid #7C3AED":"1px solid #E5E7EB",borderRadius:14,padding:24,position:"relative",background:p.popular?"#FAFAFF":"#fff"}}>
+              {p.popular && <div style={{position:"absolute",top:-12,left:"50%",transform:"translateX(-50%)",background:"#7C3AED",color:"#fff",fontSize:11,fontWeight:700,padding:"3px 14px",borderRadius:20}}>MOST POPULAR</div>}
+              <div style={{fontSize:18,fontWeight:700}}>{p.name}</div>
+              <div style={{margin:"12px 0 20px"}}><span style={{fontSize:36,fontWeight:800}}>${p.price}</span><span style={{fontSize:14,color:"#6B7280"}}>/mo</span></div>
+              <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+                {p.features.map((f,i) => <div key={i} style={{fontSize:13,color:"#374151",display:"flex",alignItems:"center",gap:6}}><span style={{color:"#059669",display:"flex"}}><Icons.Check /></span>{f}</div>)}
+              </div>
+              <button onClick={()=>onSelectPlan(p.key)} disabled={currentPlan===p.key} style={{width:"100%",padding:"11px",borderRadius:10,border:currentPlan===p.key?"1px solid #E5E7EB":"none",background:currentPlan===p.key?"#F9FAFB":p.popular?"#7C3AED":"#111827",color:currentPlan===p.key?"#9CA3AF":"#fff",fontSize:14,fontWeight:600,cursor:currentPlan===p.key?"default":"pointer",...baseFont}}>{currentPlan===p.key?"Current Plan":"Get Started"}</button>
+            </div>
+          ))}
+        </div>
+        <button onClick={onClose} style={{display:"block",margin:"20px auto 0",background:"none",border:"none",color:"#6B7280",fontSize:13,cursor:"pointer",...baseFont}}>Maybe later</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Dashboard ─────────────────────────────────────────────
+function DashboardMain({ onLogout }) {
+  const [items, setItems] = useState([]); const [filter, setFilter] = useState("all"); const [expandedId, setExpandedId] = useState(null); const [editingItem, setEditingItem] = useState(null); const [toast, setToast] = useState(null); const [voice, setVoice] = useState(DEFAULT_VOICE); const [voiceOpen, setVoiceOpen] = useState(false); const [xaiKey, setXaiKey] = useState(""); const [dbLoaded, setDbLoaded] = useState(false);
+  const [sub, setSub] = useState({ plan:"free",credits_remaining:10,credits_monthly:10,status:"active" });
+  const [connectedAccounts, setConnectedAccounts] = useState([]);
+  const [showPricing, setShowPricing] = useState(false);
+
+  const showToast = useCallback((msg, type="success") => { setToast({message:msg,type}); setTimeout(()=>setToast(null),3000); }, []);
+  const loadAccounts = async () => { try { setConnectedAccounts(await dbFetchConnectedAccounts()); } catch {} };
+
+  useEffect(() => {
+    const handler = (e) => { if (e.data?.type === "oauth_success") { loadAccounts(); showToast("Connected " + e.data.platform + " ✓"); } };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const rows = await dbFetchContent();
+        if (rows.length) setItems(rows.map(r => ({ id:r.id, platform:r.platform, status:r.status, topic:r.topic, content:r.content, metadata:{hook_summary:r.hook_summary,engagement_prediction:r.engagement_prediction,image_prompt:r.image_prompt,image_url:r.image_url}, published_result:r.published_url?{url:r.published_url}:null, created_at:r.created_at })));
+        const vp = await dbFetchVoice();
+        if (vp) setVoice({ name:vp.name||"",bio:vp.bio||"",tone:vp.tone||"",vocabulary:vp.vocabulary||"",topics:vp.topics||"",samplePosts:vp.sample_posts||"" });
+        const key = await dbGetSetting("xai_api_key");
+        if (key) setXaiKey(key);
+        setSub(await dbGetSubscription());
+        await loadAccounts();
+      } catch (e) { console.error("DB load failed:", e); }
+      setDbLoaded(true);
+    })();
+  }, []);
+
+  const updateVoice = (v) => { setVoice(v); dbSaveVoice(v); };
+  const updateXaiKey = (v) => { setXaiKey(v); dbSetSetting("xai_api_key", v); };
+  const filtered = items.filter(i => filter==="all" || i.status===filter);
+  const counts = {total:items.length,draft:items.filter(i=>i.status==="draft").length,approved:items.filter(i=>i.status==="approved").length,published:items.filter(i=>i.status==="published").length,rejected:items.filter(i=>i.status==="rejected").length};
+
+  const handleGenerate = async (topic, platforms, imageStyle) => {
+    const wantImg = imageStyle && imageStyle !== "none";
+    const creditsNeeded = platforms.length * (wantImg ? 3 : 1);
+    if (sub.credits_remaining < creditsNeeded) { setShowPricing(true); showToast("Not enough credits (" + sub.credits_remaining + " remaining, need " + creditsNeeded + ")", "error"); return; }
+    const ni = [];
+    for (const platform of platforms) {
+      try {
+        const r = await generateWithClaude(topic, platform, voice, imageStyle);
+        let imageUrl = null;
+        if (r.image_prompt && wantImg && xaiKey) { try { imageUrl = await generateImageWithGrok(r.image_prompt, xaiKey); } catch {} }
+        const item = { id:platform+"_"+Date.now()+"_"+ni.length, platform, status:"draft", topic, content:r.content, metadata:{hook_summary:r.hook_summary,engagement_prediction:r.engagement_prediction,image_prompt:r.image_prompt||null,image_url:imageUrl}, created_at:new Date().toISOString() };
+        ni.push(item); dbUpsertContent(item);
+        await dbDeductCredits(wantImg ? 3 : 1, wantImg ? "generate_image" : "generate_text", item.id, platform);
+      } catch(e) { ni.push({ id:platform+"_"+Date.now()+"_"+ni.length, platform, status:"draft", topic, content:"Error: "+e.message, metadata:{}, created_at:new Date().toISOString() }); }
+    }
+    setItems(p=>[...ni,...p]);
+    setSub(await dbGetSubscription());
+    showToast("Generated "+ni.length+" draft(s) · " + creditsNeeded + " credits used");
+  };
+
+  const handleStatus = (id, status) => { setItems(p=>p.map(i=>i.id===id?{...i,status}:i)); dbUpdateContent(id,{status}); showToast(status==="approved"?"Approved":"Rejected",status==="rejected"?"error":"success"); };
+  const handleEdit = (id, content) => { setItems(p=>p.map(i=>i.id===id?{...i,content}:i)); dbUpdateContent(id,{content}); showToast("Updated"); };
+
+  const handlePublish = async (id) => {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    const acc = connectedAccounts.find(a => a.platform === item.platform);
+    if (!acc) { showToast("Connect your " + PLATFORMS[item.platform].name + " account first", "error"); return; }
+    try {
+      showToast("Publishing to " + PLATFORMS[item.platform].name + "...");
+      const result = await publishToplatform(id, item.content, item.platform, item.metadata?.image_url);
+      if (result.success) {
+        setItems(p => p.map(i => i.id === id ? { ...i, status: "published", published_result: { url: result.url } } : i));
+        showToast("Published! " + (result.url || ""));
+      } else { showToast("Publish failed: " + (result.error || "Unknown error"), "error"); }
+    } catch (e) { showToast("Publish error: " + e.message, "error"); }
+  };
+
+  if (!dbLoaded) return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",...baseFont,color:"#6B7280"}}>Loading...</div>;
+
+  return (
+    <div style={{...baseFont,background:"#F8F9FA",minHeight:"100vh",color:"#111827"}}>
+      <div style={{background:"#fff",borderBottom:"1px solid #E5E7EB",padding:"0 32px",position:"sticky",top:0,zIndex:100}}>
+        <div style={{maxWidth:960,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:64}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{width:32,height:32,borderRadius:8,background:"linear-gradient(135deg,#111827,#374151)",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:12,fontWeight:700}}>IB</div>
+            <span style={{fontSize:17,fontWeight:700}}>Imbranding</span>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:16}}>
+            <CreditsBadge sub={sub} onUpgrade={()=>setShowPricing(true)} />
+            <div style={{width:1,height:24,background:"#E5E7EB"}} />
+            <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:11,color:"#9CA3AF"}}>xAI:</span><input type="password" placeholder="xai-..." value={xaiKey} onChange={e=>updateXaiKey(e.target.value)} style={{width:100,padding:"4px 8px",borderRadius:6,border:"1px solid "+(xaiKey?"#BBF7D0":"#E5E7EB"),fontSize:11,fontFamily:"'JetBrains Mono',monospace",outline:"none",background:xaiKey?"#F0FDF4":"#FAFAFA"}} />{xaiKey&&<span style={{fontSize:10,color:"#059669"}}>✓</span>}</div>
+            <span style={{fontSize:12,color:"#6B7280"}}>{auth.userEmail}</span>
+            <button onClick={onLogout} style={{display:"flex",alignItems:"center",gap:4,background:"none",border:"none",cursor:"pointer",color:"#6B7280",fontSize:12,...baseFont}}><Icons.Logout /></button>
+          </div>
+        </div>
+      </div>
+      <div style={{maxWidth:960,margin:"0 auto",padding:"28px 32px"}}>
+        <ConnectedAccountsPanel accounts={connectedAccounts} onConnect={(p)=>startOAuthConnect(p)} onRefresh={loadAccounts} />
+        <VoiceProfilePanel voice={voice} setVoice={updateVoice} isOpen={voiceOpen} onToggle={()=>setVoiceOpen(!voiceOpen)} />
+        <GeneratePanel onGenerate={handleGenerate} />
+        <StatsBar items={items} />
+        <FilterBar active={filter} onFilter={setFilter} counts={counts} />
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {filtered.length===0?<div style={{textAlign:"center",padding:"60px 20px",color:"#9CA3AF"}}>No content yet. Generate some above.</div>:
+          filtered.map(item=><ContentCard key={item.id} item={item} isExpanded={expandedId===item.id} onToggle={()=>setExpandedId(expandedId===item.id?null:item.id)} onApprove={id=>handleStatus(id,"approved")} onReject={id=>handleStatus(id,"rejected")} onPublish={handlePublish} onEdit={setEditingItem} onCopy={i=>{navigator.clipboard?.writeText(i.content);showToast("Copied");}} setItems={setItems} xaiKey={xaiKey} />)}
+        </div>
+      </div>
+      {editingItem&&<EditModal item={editingItem} onSave={handleEdit} onClose={()=>setEditingItem(null)} />}
+      {showPricing&&<PricingModal onClose={()=>setShowPricing(false)} currentPlan={sub.plan} onSelectPlan={(plan)=>{setShowPricing(false);const priceIds={starter:"price_1SzYMnCXmCBXA3mv308AI5Om",pro:"price_1SzYNCCXmCBXA3mvdkwVNznx",team:"price_1SzYNSCXmCBXA3mv7w8klybq"};startStripeCheckout(priceIds[plan], plan);}} />}
+      {toast&&<div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:toast.type==="error"?"#DC2626":"#111827",color:"#fff",padding:"12px 24px",borderRadius:10,fontSize:14,fontWeight:500,boxShadow:"0 8px 24px rgba(0,0,0,0.2)",animation:"slideIn 0.2s",zIndex:2000}}>{toast.message}</div>}
+    </div>
+  );
+}
+
+// ─── App Root ───────────────────────────────────────────────────
+function App() {
+  const [stage, setStage] = useState("loading");
+
+  useEffect(() => {
+    (async () => {
+      let url, key;
+      try { const r1 = await window.storage.get("sb_url"); url = r1?.value; const r2 = await window.storage.get("sb_key"); key = r2?.value; } catch {}
+      if (!url || !key) { setStage("setup"); return; }
+      auth.configure(url, key);
+      const session = await auth.getSession();
+      if (session) { setStage("app"); } else { setStage("auth"); }
+    })();
+  }, []);
+
+  const handleLogout = async () => { await auth.signOut(); setStage("auth"); };
+
+  if (stage === "loading") return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",...baseFont,color:"#6B7280"}}>Loading...</div>;
+  if (stage === "setup") return <SetupScreen onComplete={() => setStage("auth")} />;
+  if (stage === "auth") return <AuthScreen onAuth={() => setStage("app")} />;
+  return <DashboardMain onLogout={handleLogout} />;
+}
+
+ReactDOM.render(<App />, document.getElementById("root"));
+</script>
+</body>
+</html>
