@@ -149,7 +149,7 @@ async function generateWithClaude(topic, platform, voice, imageStyle) {
   const imgF = wantImg ? ',\n  "image_prompt": "image generation prompt"' : "";
   const imgI = wantImg ? "\n\nAlso include an image_prompt field for a " + (IMAGE_STYLES[imageStyle]?.desc || "") + "." : "";
   const msg = "Generate a social media post about:\n\nTOPIC: " + topic + '\n\nReturn ONLY valid JSON:\n{"content": "post text", "hook_summary": "hook angle", "engagement_prediction": "low/medium/high"' + imgF + "}" + imgI;
-  const base = (localStorage.getItem("ib_sb_url") || "").replace(/\/$/, "");
+  const base = "https://lprimqglbajpqkkeyjkz.supabase.co";
   const r = await fetch(base + "/functions/v1/generate", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + auth.token }, body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1500, system: sys, messages: [{ role: "user", content: msg }] }) });
   if (!r.ok) throw new Error("Claude API error " + r.status);
   const d = await r.json(); const raw = d.content.map(b => b.text || "").join("");
@@ -632,9 +632,8 @@ function App() {
 
   useEffect(() => {
     (async () => {
-      let url, key;
-      try { const r1 = await window.storage.get("sb_url"); url = r1?.value; const r2 = await window.storage.get("sb_key"); key = r2?.value; } catch {}
-      if (!url || !key) { setStage("setup"); return; }
+      const url = "https://lprimqglbajpqkkeyjkz.supabase.co";
+      const key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwcmltcWdsYmFqcHFra2V5amt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA3ODY4NjQsImV4cCI6MjA4NjM2Mjg2NH0.Xp4Hm7te4JfRA4UtZ6jxqm0NDlwWRUMB7mMu8zcQA6g";
       auth.configure(url, key);
       const session = await auth.getSession();
       if (session) { setStage("app"); } else { setStage("auth"); }
